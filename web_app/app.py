@@ -4,36 +4,37 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
+from api import api_response
 
 app = Flask(__name__)
 
 with open('../data/df.pkl','rb') as f:
-    df = pickle.load(f)    
-    
+    df = pickle.load(f)
+
 with open('../data/mtn_df.pkl','rb') as f:
     mtn_df = pickle.load(f)
-    
-features = ['top_elev_(ft)', 
-            'bottom_elev_(ft)', 
-            'vert_rise_(ft)', 
-            'slope_length_(ft)', 
-            'avg_width_(ft)', 
-            'slope_area_(acres)', 
-            'avg_grade_(%)', 
-            'max_grade_(%)', 
+
+features = ['top_elev_(ft)',
+            'bottom_elev_(ft)',
+            'vert_rise_(ft)',
+            'slope_length_(ft)',
+            'avg_width_(ft)',
+            'slope_area_(acres)',
+            'avg_grade_(%)',
+            'max_grade_(%)',
             'groomed']
-X = df[features].values    
+X = df[features].values
 ss = StandardScaler()
 X = ss.fit_transform(X)
 
-mtn_features = ['top_elev_(ft)', 
-                'bottom_elev_(ft)', 
-                'vert_rise_(ft)', 
-                'slope_length_(ft)', 
-                'avg_width_(ft)', 
-                'slope_area_(acres)', 
-                'avg_grade_(%)', 
-                'max_grade_(%)', 
+mtn_features = ['top_elev_(ft)',
+                'bottom_elev_(ft)',
+                'vert_rise_(ft)',
+                'slope_length_(ft)',
+                'avg_width_(ft)',
+                'slope_area_(acres)',
+                'avg_grade_(%)',
+                'max_grade_(%)',
                 'groomed',
                 'resort_bottom',
                 'resort_top',
@@ -43,8 +44,8 @@ mtn_features = ['top_elev_(ft)',
                 'bbs',
                 'lifts',
                 'price']
-                
-X_mtn = mtn_df[mtn_features].values    
+
+X_mtn = mtn_df[mtn_features].values
 X_mtn = ss.fit_transform(X_mtn)
 
 resort_stats_df = mtn_df[['resort', 'resort_bottom','resort_top','greens','blues','blacks','bbs','lifts','price']].drop_duplicates()
@@ -77,7 +78,7 @@ def cos_sim_recs(index, n=5, resort=None, color=None):
     orig_row = df.loc[[index]].rename(lambda x: 'original')
     total = pd.concat((orig_row,rec_df))
     return total
-    
+
 def mtn_recommender(index, n=5):
     trail = X_mtn[index].reshape(1,-1)
     cs = cosine_similarity(trail, X_mtn)[0]
@@ -85,7 +86,7 @@ def mtn_recommender(index, n=5):
     s = mtn_df.groupby('resort').mean()['cosine_sim'].sort_values()[::-1]
     orig_row = mtn_df.loc[[index]].rename(lambda x: 'original')
     return orig_row, list(s.index[:n])
-    
+
 def clean_df_for_recs(df):
     df['groomed'][df['groomed'] == 1] = 'Groomed'
     df['groomed'][df['groomed'] == 0] = 'Ungroomed'
@@ -97,19 +98,19 @@ def clean_df_for_recs(df):
     df = df[['trail_name','resort','location','color_names','groomed','top_elev_(ft)','bottom_elev_(ft)','vert_rise_(ft)','slope_length_(ft)','avg_width_(ft)','slope_area_(acres)','avg_grade_(%)','max_grade_(%)']]
     df.columns = ['Trail Name', 'Resort','Location','Difficulty','Groomed','Top Elev (ft)', 'Bottom Elev (ft)', 'Vert Rise (ft)', 'Slope Length (ft)', 'Avg Width (ft)', 'Slope Area (acres)', 'Avg Grade (%)', 'Max Grade (%)']
     return df
-    
-@app.route('/', methods =['GET','POST'])    
+
+@app.route('/', methods =['GET','POST'])
 def index():
     return render_template('home.html')
 
 @app.route('/trails', methods=['GET','POST'])
 def trails():
     return render_template('index.html',df=df)
-    
+
 @app.route('/mountains', methods=['GET','POST'])
 def mountains():
     return render_template('mtn_index.html',df=df)
-    
+
 @app.route('/recommendations', methods=['GET','POST'])
 def recommendations():
     color_lst = None
@@ -138,7 +139,7 @@ def recommendations():
             resort_links = links[dest_resort]
         return render_template('recommendations.html',rec_df=rec_df,resort_links=resort_links)
     return 'You must select a trail.'
-    
+
 @app.route('/mtn_recommendations', methods=['GET','POST'])
 def mtn_recommendations():
     resort = request.form['resort']
@@ -157,8 +158,8 @@ def mtn_recommendations():
         results_df.columns = ['Resort','Bottom Elevation (ft)', 'Top Elevation (ft)', 'Percent Greens', 'Percent Blues', 'Percent Blacks', 'Percent Double  Blacks', 'Number of Lifts']
         return render_template('mtn_recommendations.html',row=row,results_df=results_df,links=links)
     return 'You must select a trail.'
-    
-  
+
+
 @app.route('/get_trails')
 def get_trails():
     resort = request.args.get('resort')
@@ -171,11 +172,15 @@ def get_trails():
         data = [{"id": str(x[0]), "name": x[1], "color": x[2]} for x in id_name_color]
         # print(data)
     return jsonify(data)
-    
+
 @app.route('/trail_map/<resort>')
 def trail_map(resort):
     resort_image = links[resort][0]
     return render_template('trail_map.html',resort_image=resort_image)
-    
+
+@app.route('/api/<req>')
+def get_api_call(req):
+    return api_response(req, request.args, df=df, mtn_df=mtn_df)
+
 if  __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True, threaded=True)
