@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
-from api import api_response
 
 app = Flask(__name__)
 
@@ -180,6 +179,7 @@ def trail_map(resort):
 
 @app.route('/api/<req>')
 def get_api_call(req):
+    from api import api_response
     return api_response(req, request.args, df=df, mtn_df=mtn_df)
 
 if  __name__ == '__main__':
